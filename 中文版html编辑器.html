@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>YSIR'S HTML编辑器</title>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+body {
+  font-family: "Microsoft YaHei", sans-serif;
+  padding: 20px;
+  background: #f8f9fa;
+}
+.editor-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: calc(100vh - 40px);
+}
+.btn-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap; 
+}
+.btn {
+  padding: 8px 16px;
+  background: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: opacity 0.3s;
+}
+.btn:hover {
+  opacity: 0.8;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #6c757d; 
+}
+.clear-btn {
+  background-color: #dc3545;
+}
+.save-btn {
+  background-color: #ffc107;
+  color: #343a40;
+}
+.load-btn {
+  background-color: #28a745;
+}
+.download-btn {
+  background-color: #17a2b8;
+}
+#content-container {
+  display: flex;
+  flex-grow: 1; 
+  gap: 12px;
+  min-height: 0; 
+  flex-direction: column; 
+}
+#content-container.live-split {
+  flex-direction: row; 
+}
+#editor, #preview {
+  width: 100%;
+  flex-grow: 1; 
+  padding: 10px;
+  font-size: 14px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  resize: none;
+  overflow: auto;
+  font-family: monospace;
+}
+#content-container.live-split #editor, 
+#content-container.live-split #preview {
+  width: 50%; 
+  height: 100%; 
+}
+#preview {
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+}
+</style>
+</head>
+<body>
+<div class="editor-container">
+  <div class="btn-group" id="editor-controls">
+    <button class="btn" onclick="switchMode('edit')">编辑模式</button>
+    <button class="btn" onclick="switchMode('preview')">预览模式</button>
+    <button class="btn" onclick="switchMode('live')">实时预览分屏</button>
+    
+    <button class="btn save-btn" onclick="saveCode()">缓存 代码</button>
+    <button class="btn load-btn" onclick="loadCode()">加载 缓存</button>
+    
+    <button class="btn download-btn" onclick="downloadCode()">下载代码</button>
+    
+    <button class="btn clear-btn" onclick="clearEditor()">清空代码</button>
+  </div>
+  
+  <div id="content-container">
+    <textarea id="editor">
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>既民的空间</title>
+<style>
+body { 
+  background: #e9ecef; 
+  text-align: center; 
+  padding: 30px; 
+  font-family: Arial, sans-serif;
+}
+.welcome-box {
+    border: 1px solid #ced4da;
+    padding: 20px;
+    border-radius: 8px;
+    background: white;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    max-width: 600px;
+    margin: 0 auto;
+}
+h1 { 
+  color: #007bff; 
+  margin-bottom: 10px;
+}
+p {
+    margin: 10px 0;
+}
+img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    margin: 15px 0;
+}
+button {
+  padding: 10px 20px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  margin-top: 10px;
+  margin: 5px;
+}
+#no-btn {
+    background: #ff4757;
+}
+</style>
+
+<script>
+function unlockControls() {
+    if (window.parent && window.parent.enableEditorButtons) {
+        window.parent.enableEditorButtons();
+    }
+}
+</script>
+
+</head>
+<body>
+  <div class="welcome-box">
+      <h1>欢迎来到既民空间</h1>
+      <hr>
+      <img src="https://picsum.photos/1200/800?random=${new Date().getTime()}" alt="awesome beauty">
+      
+      <p>答应我，friend，天天开心！</p>
+      <button onclick="alert('一起开始编辑吧！'); unlockControls();">of course</button>
+      <button id="no-btn" onclick="alert('很遗憾听到您这样说，再见！或者重新加载！'); unlockControls(); window.location.href='about:blank';">no</button>
+  </div>
+</body>
+</html>
+    </textarea>
+    
+    <iframe id="preview"></iframe>
+  </div>
+</div>
+
+<a id="download-link" style="display:none;"></a>
+
+<script>
+let isLiveListenerActive = false;
+const STORAGE_KEY = 'htmlEditorDraft'; 
+
+function updatePreview() {
+  const editor = document.getElementById('editor');
+  const preview = document.getElementById('preview');
+  
+  if (preview.style.display !== 'none') {
+      const frameDoc = preview.contentWindow.document;
+      const content = editor.value.replace(
+          '${new Date().getTime()}', 
+          new Date().getTime()
+      );
+      
+      frameDoc.open();
+      frameDoc.write(content); 
+      frameDoc.close();
+  }
+}
+
+function toggleLiveListener(activate) {
+    const editor = document.getElementById('editor');
+
+    if (activate && !isLiveListenerActive) {
+        editor.addEventListener('input', updatePreview);
+        isLiveListenerActive = true;
+    } else if (!activate && isLiveListenerActive) {
+        editor.removeEventListener('input', updatePreview);
+        isLiveListenerActive = false;
+    }
+}
+
+function disableEditorButtons() {
+    const controls = document.getElementById('editor-controls');
+    controls.querySelectorAll('.btn').forEach(button => {
+        const text = button.textContent.trim();
+        if (text.includes('模式') || text.includes('分屏')) {
+            button.disabled = true;
+        }
+    });
+}
+
+function enableEditorButtons() {
+    const controls = document.getElementById('editor-controls');
+    controls.querySelectorAll('.btn').forEach(button => {
+        button.disabled = false;
+    });
+}
+
+function switchMode(mode) {
+  const editor = document.getElementById('editor');
+  const preview = document.getElementById('preview');
+  const container = document.getElementById('content-container');
+  
+  container.classList.remove('live-split');
+  toggleLiveListener(false);
+
+  if (mode === 'edit') {
+    editor.style.display = 'block';
+    preview.style.display = 'none';
+  } else if (mode === 'preview') {
+    editor.style.display = 'none';
+    preview.style.display = 'block';
+    updatePreview();
+  } else if (mode === 'live') {
+    editor.style.display = 'block';
+    preview.style.display = 'block';
+    container.classList.add('live-split'); 
+    toggleLiveListener(true);
+    updatePreview();
+  }
+}
+
+function clearEditor() {
+    const editor = document.getElementById('editor');
+    
+    if (!confirm('确定要清空编辑框中所有的代码吗？此操作不可撤销！')) {
+        return; 
+    }
+    
+    editor.value = ''; 
+    updatePreview(); 
+    switchMode('edit'); 
+    editor.focus();
+}
+
+function saveCode() {
+    const editor = document.getElementById('editor');
+    try {
+        localStorage.setItem(STORAGE_KEY, editor.value);
+        alert('代码已成功暂存到浏览器！');
+    } catch (e) {
+        alert('保存失败：请检查浏览器是否为隐私模式或存储空间。');
+        console.error('Save Error:', e);
+    }
+}
+
+function loadCode() {
+    const editor = document.getElementById('editor');
+    try {
+        const savedCode = localStorage.getItem(STORAGE_KEY);
+        
+        if (savedCode) {
+             if (editor.value.trim() !== '' && !confirm('编辑框中有未清空的内容，确定要用暂存的代码覆盖吗？')) {
+                 return; 
+             }
+             
+             editor.value = savedCode;
+             updatePreview(); 
+             switchMode('edit'); 
+             editor.focus();
+             alert('代码已成功从浏览器加载！');
+        } else {
+             alert('浏览器中没有找到暂存的代码。请先点击“暂存代码 (保存)”按钮。');
+        }
+    } catch (e) {
+        alert('加载失败：请检查浏览器是否为隐私模式。');
+        console.error('Load Error:', e);
+    }
+}
+
+function downloadCode() {
+    const editor = document.getElementById('editor');
+    const codeContent = editor.value;
+    const downloadLink = document.getElementById('download-link');
+
+    const dataUri = 'data:text/html;charset=utf-8,' + encodeURIComponent(codeContent);
+    
+    downloadLink.href = dataUri;
+    downloadLink.download = 'my_editor_code.html'; 
+    
+    downloadLink.click();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    switchMode('preview');
+    disableEditorButtons();
+});
+</script>
+</body>
+</html>
